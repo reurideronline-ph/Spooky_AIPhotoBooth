@@ -22,13 +22,13 @@ window.BOOTH_CONFIG = {
 
   // PIN Slip sold at the booth counter (shown to guests)
   PIN_PRICE: 150,
-  DEMO_PIN: '000000',        // staff demo PIN: works on the live booth, uses stand-in images, costs nothing
+  DEMO_PIN: '000000',        // offline fallback only — the live demo PIN is the DEMO_PIN setting in the Sheet
 
   // Paid prints — the server's PRINT_PRICE / CURRENCY override these when online.
   PRINT_PRICE: 50,
   CURRENCY: '₱',
   MAX_COPIES: 10,
-  DEMO_STAFF_CODE: '1234',   // staff code that works in demo mode only
+  DEMO_STAFF_CODE: '1234',   // print staff code for the OFFLINE preview only (live booth uses STAFF_CODE in the Sheet)
 
   // Printing (5R = 5 × 7 inches @ 300 dpi)
   PRINT_DPI: 300,

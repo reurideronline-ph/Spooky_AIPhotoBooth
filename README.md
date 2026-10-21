@@ -50,7 +50,7 @@ A PWA photo booth: guests unlock with a **PIN bought at the counter**, pick a **
 3. **Settings → Pages → Deploy from branch → `main` / root.** Your booth is at `https://<you>.github.io/<repo>/`.
 4. After any update, bump `VERSION` in `sw.js` so installed devices refresh.
 
-**Demo PIN:** enter **000000** on the PIN screen to run the full flow for testing or showing guests. It works on the live booth too, never touches the Sheet or OpenAI (the "AI" pictures are stand-ins), and its print staff code is **1234**. Change it with `DEMO_PIN` in `config.js`.
+**Demo PIN:** enter **000000** (the `DEMO_PIN` setting) to run the full flow with **real AI**, which uses OpenAI credit. Each use opens its own `DEMO-…` row in the PINs tab and is never charged to a real PIN. Demo prints use the real STAFF_CODE and are logged in the Prints tab at ₱0. `DEMO_DAILY_LIMIT` (default 20 per day) stops a leaked demo PIN from running up your OpenAI bill, and today's stats count demo sessions separately. The demo PIN is never sent to guests' browsers. If `API_URL` is not set yet (offline preview), 000000 shows plain stand-in pictures instead.
 
 **PIN Slip price:** guests see “Buy your PIN Slip at the Booth Counter for ₱150.00” on the opening and PIN screens. Change `PIN_PRICE` in `config.js`.
 
@@ -67,7 +67,7 @@ A PWA photo booth: guests unlock with a **PIN bought at the counter**, pick a **
 | Section | Settings |
 |---|---|
 | Guest screens | `BOOTH_NAME`, `THEME_TITLE` (big animated title), `SUBTITLE`, `TAGLINE` |
-| PIN Slip | `PIN_PRICE` (150), `CURRENCY` (₱), `DEMO_PIN` (000000 — leave empty to disable) |
+| PIN Slip | `PIN_PRICE` (150), `CURRENCY` (₱), `DEMO_PIN` (000000, real AI — leave empty to disable), `DEMO_DAILY_LIMIT` (20) |
 | Prints | `PRINTING_ENABLED` (checkbox), `PRINT_PRICE` (50), `MAX_COPIES` (10), `STAFF_CODE` |
 | Booth timing | `CAMERA_COUNTDOWN` (10 s), `RESULT_IDLE_SECONDS` (180), `MIRROR_OUTPUT` |
 | Layouts | `LAYOUTS` — `frame1, frame2` (remove or reorder to change what guests see) |

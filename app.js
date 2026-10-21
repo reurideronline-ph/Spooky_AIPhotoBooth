@@ -37,7 +37,7 @@
 
   /* ---------------- API ---------------- */
   async function api(action, data = {}, timeoutMs = 60000) {
-    if (!API_READY || state.demo) return mockApi(action, data);
+    if (!API_READY) return mockApi(action, data);
     const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), timeoutMs);
     try {
       const r = await fetch(CFG.API_URL, {
@@ -55,7 +55,7 @@
     try { const r = await fetch(CFG.API_URL + '?' + new URLSearchParams(params), { redirect: 'follow' }); return await r.json(); }
     catch (e) { return { ok: false, error: 'offline' }; }
   }
-  // Demo mode: PIN 000000 (CFG.DEMO_PIN) always runs here in the browser — no Sheet, no OpenAI cost.
+  // Offline mode (API_URL not set): the demo PIN runs with stand-in images.
   async function mockApi(action, d) {
     await sleep(action === 'generate' ? 3500 : 400);
     if (action === 'validatePin') return { ok: false, error: 'PIN not found. Please check your PIN Slip or ask the booth counter.' };
@@ -73,8 +73,10 @@
     return { ok: true };
   }
 
-  /* ---------------- demo helpers (no backend, no OpenAI cost) ---------------- */
-  // Stand-in for the AI: colour-grades the photo in the character's palette and stamps it "DEMO".
+  /* ---------------- offline stand-ins ----------------
+   * Used ONLY when API_URL is not set (e.g. the design preview), because there is no server to reach.
+   * On the real booth every PIN — including the demo PIN — goes to the backend and OpenAI. */
+  // Stand-in for step 1: the photo colour-graded in the character's palette (nothing drawn on it).
   async function fakeAI(b64, ch) {
     const img = await loadImg('data:image/jpeg;base64,' + b64);
     const S = 1024, c = document.createElement('canvas'); c.width = c.height = S; const g = c.getContext('2d');
@@ -86,9 +88,6 @@
     g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
     const v = g.createRadialGradient(S / 2, S / 2, S * .3, S / 2, S / 2, S * .75);
     v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(10,2,20,.75)'); g.fillStyle = v; g.fillRect(0, 0, S, S);
-    g.font = '150px serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(ch.emoji, S - 140, S - 160);
-    g.font = '60px serif'; [0, 1, 2].forEach(i => g.fillText('🦇', 160 + i * 300, 110 + (i % 2) * 70));
-    demoStamp(g, S, `DEMO · ${ch.name} (character photo)`);
     return c.toDataURL('image/jpeg', .9);
   }
   // Stand-in for step 2: posterised, saturated "cartoon" look of the step-1 picture.
@@ -108,14 +107,7 @@
     g.putImageData(d, 0, 0);
     const glow = g.createRadialGradient(S * .5, S * .35, 0, S * .5, S * .35, S * .7);
     glow.addColorStop(0, 'rgba(255,220,150,.25)'); glow.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = glow; g.fillRect(0, 0, S, S);
-    g.font = '90px serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('✨', 120, 120); g.fillText('🎬', S - 120, 120);
-    demoStamp(g, S, 'DEMO · 3D animated version');
     return c.toDataURL('image/jpeg', .9);
-  }
-  function demoStamp(g, S, text) {
-    g.fillStyle = 'rgba(0,0,0,.6)'; g.fillRect(0, S - 70, S, 70);
-    g.fillStyle = '#fbbf24'; g.font = '600 34px Fredoka, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.fillText(text, S / 2, S - 35);
   }
   // A drawn sample "guest" photo for when no camera is available.
   function samplePhoto() {
@@ -131,7 +123,6 @@
       g.fillStyle = '#1a1a1a'; [-48, 48].forEach(dx => { g.beginPath(); g.arc(p.x + dx, 470, 12, 0, 7); g.fill(); });
       g.strokeStyle = '#5a2a1a'; g.lineWidth = 8; g.beginPath(); g.arc(p.x, 525, 45, .2 * Math.PI, .8 * Math.PI); g.stroke();
     });
-    g.fillStyle = 'rgba(255,255,255,.8)'; g.font = '600 30px sans-serif'; g.textAlign = 'center'; g.fillText('SAMPLE GUEST PHOTO', S / 2, 60);
     return c.toDataURL('image/jpeg', .9);
   }
 
@@ -279,9 +270,9 @@
   let pinBusy = false;
   async function submitPin() {
     if (pinBusy || pin.length !== PIN_LEN) return;
-    if (CFG.DEMO_PIN && pin === CFG.DEMO_PIN) {                  // staff demo: no Sheet, no OpenAI cost
+    if (!API_READY && CFG.DEMO_PIN && pin === CFG.DEMO_PIN) {   // offline preview only — no server to reach
       state.demo = true; state.token = 'demo'; Sound.magic();
-      toast('Demo PIN: images are stand-ins, nothing is charged.', 3200);
+      toast('Offline preview: no server set, so pictures are stand-ins.', 3200);
       return goCharacter();
     }
     pinBusy = true; $('#pinSubmit').disabled = true; $('#pinSubmit').textContent = 'Checking the spirits…';
@@ -291,7 +282,8 @@
       $('#pinError').textContent = res.error || 'Invalid PIN.'; const b = $('#pinBoxes'); b.classList.remove('shake'); void b.offsetWidth; b.classList.add('shake');
       pin = ''; renderPin(); return;
     }
-    state.token = res.token; Sound.magic();
+    state.token = res.token; state.demo = !!res.demo; Sound.magic();
+    if (res.demo) toast('Demo session · real AI · not charged to a PIN', 3200);
     if (res.stage === 'generated' || res.stage === 'step1') {   // resume after a reload
       state.character = state.characters.find(c => c.id === res.characterId) || state.characters[0];
       await useImages(res.images.map(toUrl));
@@ -351,7 +343,7 @@
       cameraFailed = true;
       $('#camMsg').textContent = 'Camera unavailable — allow camera access, or upload a photo.';
       $('#shootBtn').disabled = false; $('#shootBtn').textContent = '📷 Upload a Photo';
-      $('#sampleBtn').hidden = !(state.demo || !API_READY);
+      $('#sampleBtn').hidden = API_READY;   // live booth: use the camera or upload a real photo
     }
   }
   $('#shootBtn').addEventListener('click', () => cameraFailed ? fileInput.click() : startCountdown());
@@ -413,7 +405,7 @@
     const res = step === 1
       ? await api('generate', { token: state.token, characterId: state.character.id, photo: state.photoB64 }, 170000)
       : await api('animate', Object.assign({ token: state.token },          // the server re-reads step 1 from Drive;
-          (state.demo || !API_READY) ? { image: state.images[0].src } : {}), 170000);   // only demo mode needs it here
+          !API_READY ? { image: state.images[0].src } : {}), 170000);   // only the offline preview needs it here
     clearInterval(iv);
     if (!res.ok) {
       $('#genTitle').textContent = 'The Spell Fizzled';
@@ -492,7 +484,7 @@
     if (window.QRCode) new QRCode(el, { text: url, width: 240, height: 240, colorDark: '#12061f', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
     else el.textContent = state.shareCode;
     const days = 7;
-    $('#qrNote').textContent = (API_READY && !state.demo) ? `Photo code: ${state.shareCode} · available for ${days} days` : 'Demo mode — QR is a sample';
+    $('#qrNote').textContent = API_READY ? `Photo code: ${state.shareCode} · available for ${days} days${state.demo ? ' · demo' : ''}` : 'Offline preview — QR is a sample';
   }
   function showResult() {
     $('#finalImg').src = state.finalDataUrl; show('result'); FX.swarm(14); startIdle();
@@ -618,7 +610,7 @@
     $('#orderSummary').textContent = total ? `${parts.join(' · ')}  (${total} × ${money(pricing.price)})` : 'No photos selected';
     $('#orderTotal').textContent = money(amount); $('#payAmount').textContent = money(amount);
     $('#payStep').hidden = !total;
-    $('#demoCodeHint').hidden = !(state.demo || !API_READY);
+    $('#demoCodeHint').hidden = API_READY;
     document.querySelectorAll('#printGrid .pick').forEach(card => {
       const n = order[card.dataset.id] || 0; card.classList.toggle('on', n > 0);
       card.querySelector('output').textContent = n;

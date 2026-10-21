@@ -1,6 +1,6 @@
 /* Service worker — caches the app shell & frames so the booth loads instantly.
  * Bump VERSION whenever you change files on GitHub so devices pick up the update. */
-const VERSION = 'spooky-booth-v7';
+const VERSION = 'spooky-booth-v8';
 const SHELL = [
   './', 'index.html', 'download.html', 'styles.css', 'app.js', 'config.js', 'manifest.webmanifest',
   'frames/frame1.png', 'frames/frame2.png', 'frames/frame1-thumb.jpg', 'frames/frame2-thumb.jpg',
