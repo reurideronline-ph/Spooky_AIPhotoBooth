@@ -1,0 +1,16 @@
+{
+  "name": "Spooky AI Photo Booth",
+  "short_name": "Spooky Booth",
+  "description": "AI Halloween photo booth — become a vampire, witch, spellcaster and more.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0f0620",
+  "theme_color": "#1a0b2e",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Your Halloween Photos</title>
+  <meta name="theme-color" content="#1a0b2e">
+  <link rel="icon" href="icons/icon-192.png">
+  <link href="https://fonts.googleapis.com/css2?family=Creepster&family=Fredoka:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root{--night:#0f0620;--ember:#fbbf24;--bone:#fff7e6;--muted:#cbb8ee;--line:rgba(251,191,36,.35);--card:rgba(30,12,58,.72)}
+    *{box-sizing:border-box}
+    body{margin:0;min-height:100vh;font-family:'Fredoka',system-ui,sans-serif;color:var(--bone);text-align:center;
+      background:radial-gradient(120% 70% at 70% 0%,#5b21b6,#2a0f4d 40%,#0f0620 75%) fixed;
+      padding:20px max(16px,env(safe-area-inset-right)) 40px max(16px,env(safe-area-inset-left))}
+    h1{font-family:'Creepster',cursive;font-weight:400;font-size:clamp(34px,9vw,56px);color:var(--ember);margin:8px 0 4px;
+      text-shadow:0 3px 0 #7c2d12,0 0 22px rgba(249,115,22,.6)}
+    h2{margin:0;font-size:18px}
+    p{color:var(--muted);margin:0 0 16px}
+    .wrap{max-width:520px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:14px;display:flex;flex-direction:column;gap:12px}
+    .card img{width:100%;border-radius:14px;display:block;box-shadow:0 12px 40px #000a;-webkit-touch-callout:default}
+    .row{display:flex;gap:10px}
+    .btn{flex:1;border:0;border-radius:999px;padding:14px 18px;font:600 17px 'Fredoka',sans-serif;cursor:pointer;
+      background:linear-gradient(180deg,#fb923c,#ea580c);color:#1c0a02;box-shadow:0 0 18px rgba(249,115,22,.5)}
+    .ghost{background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--bone);box-shadow:none}
+    .all{width:100%}
+    .print{border:1px dashed var(--line);border-radius:18px;padding:14px;color:var(--bone)}
+    .print b{color:var(--ember)}
+    .spin{font-size:64px;display:inline-block;animation:b 1.2s ease-in-out infinite;margin-top:30vh}
+    @keyframes b{50%{transform:translateY(-14px) rotate(8deg)}}
+    .tiny{font-size:13px;margin:0}
+    [hidden]{display:none!important}
+  </style>
+</head>
+<body>
+  <div id="loading"><span class="spin">🎃</span><p>Summoning your photos…</p></div>
+  <div id="view" class="wrap" hidden>
+    <div>
+      <h1>Happy Halloween!</h1>
+      <p>Your 3 AI photo booth pictures are ready.</p>
+    </div>
+    <button class="btn all" id="saveAll">⬇️ Save All 3 Photos</button>
+    <div id="list" class="wrap"></div>
+    <div class="print">🖨️ Want them printed? 5R prints are <b id="price">₱50</b> each at the booth counter.</div>
+    <p class="tiny">On iPhone you can also press and hold a photo → “Save to Photos”.</p>
+    <p class="tiny" id="expiry"></p>
+  </div>
+  <div id="err" hidden><span class="spin">👻</span><h1>Boo!</h1><p id="errMsg"></p></div>
+
+  <script src="config.js"></script>
+  <script>
+  (async () => {
+    const CFG = window.BOOTH_CONFIG;
+    const code = new URLSearchParams(location.search).get('c') || '';
+    const $ = id => document.getElementById(id);
+    const fail = m => { $('loading').hidden = true; $('err').hidden = false; $('errMsg').textContent = m; };
+    $('price').textContent = CFG.CURRENCY + CFG.PRINT_PRICE;
+    if (!code) return fail('No photo code in this link.');
+    if (code === 'DEMO') return fail('This is a demo QR. Set API_URL in config.js to get real downloads.');
+
+    let r;
+    try { r = await (await fetch(CFG.API_URL + '?action=photo&c=' + encodeURIComponent(code), { redirect: 'follow' })).json(); }
+    catch (e) { return fail('Could not reach the booth server. Please try again in a moment.'); }
+    if (!r.ok) return fail(r.error || 'Photos not found.');
+    try {
+      const c = await (await fetch(CFG.API_URL + '?action=config', { redirect: 'follow' })).json();
+      if (c.ok && c.print) $('price').textContent = c.print.currency + c.print.price;
+    } catch (e) {}
+
+    const photos = r.photos || [{ id: 'collage', label: 'Photo collage', dataUrl: r.dataUrl }];
+    const files = [];
+    for (const p of photos) {
+      const blob = await (await fetch(p.dataUrl)).blob();
+      const name = `halloween-${code}-${p.id}.jpg`;
+      const file = new File([blob], name, { type: 'image/jpeg' }), url = URL.createObjectURL(blob);
+      files.push({ file, url, name });
+      const card = document.createElement('div'); card.className = 'card';
+      card.innerHTML = `<h2></h2><img alt=""><div class="row"><button class="btn">⬇️ Download</button><button class="btn ghost" hidden>📤 Share</button></div>`;
+      card.querySelector('h2').textContent = p.label;
+      card.querySelector('img').src = url; card.querySelector('img').alt = p.label;
+      const [dl, sh] = card.querySelectorAll('button');
+      dl.onclick = () => save(url, name);
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        sh.hidden = false; sh.onclick = () => navigator.share({ files: [file], title: p.label }).catch(() => {});
+      }
+      $('list').appendChild(card);
+    }
+    $('saveAll').textContent = `⬇️ Save All ${photos.length} Photos`;
+    $('saveAll').onclick = async () => {
+      const all = files.map(f => f.file);
+      if (navigator.canShare && navigator.canShare({ files: all })) {
+        try { await navigator.share({ files: all, title: 'My Halloween photos' }); return; } catch (e) { if (e.name === 'AbortError') return; }
+      }
+      for (const f of files) { save(f.url, f.name); await new Promise(res => setTimeout(res, 500)); }
+    };
+    $('expiry').textContent = `Save them now — photos are deleted from the booth after ${r.retentionDays || 7} days for your privacy.`;
+    $('loading').hidden = true; $('view').hidden = false;
+
+    function save(url, name) { const a = Object.assign(document.createElement('a'), { href: url, download: name }); document.body.appendChild(a); a.click(); a.remove(); }
+  })();
+  </script>
+</body>
+</html>

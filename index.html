@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <title>Spooky AI Photo Booth</title>
+  <meta name="description" content="AI Halloween photo booth — become a vampire, witch, wizard and more.">
+  <meta name="theme-color" content="#1a0b2e">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Spooky Booth">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Creepster&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- ======= Ambient background (persists across screens) ======= -->
+  <div class="sky" aria-hidden="true">
+    <div class="stars"></div>
+    <div class="moon"><span></span></div>
+    <svg class="skyline" viewBox="0 0 1200 260" preserveAspectRatio="xMidYMax slice">
+      <path d="M0 260V200l40-10 20-40 20 40h30v-60l12-40 12 40v60h40l30-30 30 30h40V120l18-50 18 50v20h14V90l20-60 20 60v60h30l40-40 40 40h60v-30l60-20 60 20v30h40V100l16-44 16 44v40h22V80l24-70 24 70v70h40l30-30 30 30h60l40-20 40 20h70v-40l30-30 30 30v40h50v70z"/>
+      <g class="windows">
+        <rect x="345" y="110" width="6" height="10"/><rect x="380" y="70" width="6" height="10"/><rect x="380" y="100" width="6" height="10"/>
+        <rect x="733" y="110" width="6" height="10"/><rect x="778" y="60" width="6" height="12"/><rect x="778" y="95" width="6" height="12"/>
+      </g>
+    </svg>
+    <div class="fog fog-a"></div><div class="fog fog-b"></div>
+    <canvas id="fx"></canvas>
+  </div>
+  <div class="lightning" aria-hidden="true"></div>
+
+  <main id="app">
+    <!-- ======= 1. INTRO ======= -->
+    <section class="screen active" data-screen="intro" aria-label="Welcome">
+      <div class="intro-wrap">
+        <div class="web" aria-hidden="true">
+          <svg viewBox="0 0 200 200"><g fill="none" stroke="currentColor" stroke-width="1.4">
+            <path d="M200 0L0 200M200 0L60 200M200 0L130 200M200 0L0 60M200 0L0 130"/>
+            <path d="M170 0q5 25 30 30M140 0q8 50 60 60M105 0q12 80 95 95M65 0q18 120 135 135M25 0q25 160 175 175"/></g></svg>
+          <div class="spider"><i></i>🕷️</div>
+        </div>
+        <div class="title" id="introTitle" aria-label="Happy Halloween"></div>
+        <p class="subtitle">AI Photo Booth</p>
+        <div class="intro-cast" aria-hidden="true">
+          <span class="ghost g1">👻</span><span class="jack">🎃</span><span class="ghost g2">👻</span>
+        </div>
+        <div class="intro-actions">
+          <button class="btn btn-glow big" id="startBtn">Tap to Begin</button>
+        </div>
+        <p class="fine">Become a vampire, witch, spellcaster &amp; more — in one magical shot.</p>
+        <p class="pin-note">🎟️ Buy your <b>PIN Slip</b> at the Booth Counter for <b class="pin-price">₱150.00</b></p>
+      </div>
+    </section>
+
+    <!-- ======= 2. PIN ======= -->
+    <section class="screen" data-screen="pin" aria-label="Enter PIN">
+      <div class="panel narrow">
+        <h1 class="h-spooky">Enter Your PIN</h1>
+        <p class="muted">Type the 6-digit PIN printed on your PIN Slip.</p>
+        <p class="pin-note small">No PIN yet? Buy a <b>PIN Slip</b> at the Booth Counter for <b class="pin-price">₱150.00</b>.</p>
+        <div class="pin-boxes" id="pinBoxes" aria-live="polite"></div>
+        <input id="pinInput" class="sr-only" inputmode="numeric" autocomplete="one-time-code" maxlength="6" aria-label="PIN code">
+        <div class="keypad" id="keypad"></div>
+        <button class="btn btn-glow wide" id="pinSubmit" disabled>Unlock the Magic</button>
+        <p class="error" id="pinError" role="alert"></p>
+      </div>
+    </section>
+
+    <!-- ======= 3. CHARACTER (no timer) ======= -->
+    <section class="screen" data-screen="character" aria-label="Choose a character">
+      <header class="bar">
+        <div>
+          <h1 class="h-spooky">Choose Your Character</h1>
+          <p class="muted">Tap a character, then cast the spell.</p>
+        </div>
+      </header>
+      <div class="char-grid" id="charGrid"></div>
+      <button class="btn btn-glow wide sticky" id="charGo" disabled>Cast the Spell ✨</button>
+    </section>
+
+    <!-- ======= 4. CAMERA (one shot) ======= -->
+    <section class="screen" data-screen="camera" aria-label="Take your photo">
+      <header class="bar center">
+        <div>
+          <h1 class="h-spooky" id="camTitle">Strike a Pose!</h1>
+          <p class="muted">One shot only — everyone squeeze into the square, faces to the camera.</p>
+        </div>
+      </header>
+      <div class="cam-stage">
+        <video id="video" playsinline autoplay muted></video>
+        <div class="cam-corners"><i></i><i></i><i></i><i></i></div>
+        <div class="cam-badge" id="camBadge">🎃 <span id="camCharName">Vampire</span></div>
+        <div class="countdown" id="countdown"></div>
+        <div class="flash" id="flash"></div>
+        <p class="cam-msg" id="camMsg">Starting camera…</p>
+      </div>
+      <div class="cam-actions">
+        <button class="btn btn-glow wide" id="shootBtn" disabled>I'm Ready!</button>
+        <button class="btn btn-ghost wide" id="sampleBtn" hidden>🧑‍🤝‍🧑 Use Sample Photo</button>
+      </div>
+    </section>
+
+    <!-- ======= 5. GENERATING ======= -->
+    <section class="screen" data-screen="generating" aria-label="Creating your photo">
+      <div class="panel narrow center">
+        <div class="cauldron" aria-hidden="true">
+          <div class="bubbles"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <svg viewBox="0 0 200 160">
+            <ellipse cx="100" cy="48" rx="78" ry="16" class="brew"/>
+            <path d="M22 48q-6 70 40 90h76q46-20 40-90z" class="pot"/>
+            <ellipse cx="100" cy="48" rx="80" ry="12" class="rim"/>
+            <path d="M60 138l-10 18M140 138l10 18" stroke-width="10" stroke-linecap="round" class="legs"/>
+          </svg>
+        </div>
+        <p class="step-chip" id="genStep">Step 1 of 2</p>
+        <h1 class="h-spooky" id="genTitle">Brewing Your Photo…</h1>
+        <p class="muted" id="genMsg">Summoning costumes from the spirit world</p>
+        <div class="progress"><i id="genBar"></i></div>
+        <img id="shotPreview" class="shot-preview" alt="Your photo">
+        <p class="error" id="genError" role="alert"></p>
+        <button class="btn btn-glow" id="genRetry" hidden>Try the Spell Again</button>
+      </div>
+    </section>
+
+    <!-- ======= 6. LAYOUT (your frames) ======= -->
+    <section class="screen" data-screen="layout" aria-label="Choose a frame">
+      <header class="bar">
+        <div>
+          <h1 class="h-spooky">Pick Your Frame</h1>
+          <p class="muted">Your photos are ready — choose a layout.</p>
+        </div>
+      </header>
+      <div class="layout-grid" id="layoutGrid"></div>
+      <button class="btn btn-glow wide sticky" id="layoutGo">Use This Frame</button>
+    </section>
+
+    <!-- ======= 7. RESULT ======= -->
+    <section class="screen" data-screen="result" aria-label="Your photo">
+      <div class="result">
+        <div class="result-photo"><img id="finalImg" alt="Your Halloween photo"></div>
+        <aside class="result-side">
+          <h1 class="h-spooky">Spooktacular!</h1>
+          <div class="qr-card">
+            <div id="qr" class="qr"></div>
+            <div>
+              <b>Scan to download</b>
+              <p class="muted small">Scan with your phone to get all 3 photos: the collage, the character photo and the 3D animated photo.</p>
+              <p class="muted tiny" id="qrNote"></p>
+            </div>
+          </div>
+          <button class="btn btn-glow wide" id="printBtn">🖨️ Print 5R Photos · <span class="price-each">₱50</span> each</button>
+          <button class="btn btn-ghost wide" id="downloadBtn">⬇️ Save 3 Photos to This Device</button>
+          <button class="btn btn-ghost wide" id="finishBtn">Done — Next Guest</button>
+          <p class="muted tiny" id="idleNote"></p>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <!-- ======= PWA install sheet (first opening) ======= -->
+  <div class="install" id="installSheet" hidden role="dialog" aria-labelledby="installTitle">
+    <img src="icons/icon-192.png" alt="" width="56" height="56">
+    <div class="install-text">
+      <b id="installTitle">Install the Spooky Booth</b>
+      <span id="installHint">Add it to your home screen for full-screen magic.</span>
+    </div>
+    <button class="btn btn-glow sm" id="installBtn">Install</button>
+    <button class="icon-btn" id="installClose" aria-label="Close">✕</button>
+  </div>
+
+  <!-- ======= Save photos (3 downloads) ======= -->
+  <div class="modal" id="saveModal" hidden role="dialog" aria-labelledby="saveTitle">
+    <div class="modal-card wide">
+      <h2 class="h-spooky" id="saveTitle">Save Your Photos</h2>
+      <p class="muted small">Three pictures are yours to keep — free.</p>
+      <div class="pick-grid" id="saveGrid"></div>
+      <p class="muted tiny" id="saveNote"></p>
+      <div class="modal-actions">
+        <button class="btn btn-glow" id="saveAll">⬇️ Save All 3</button>
+        <button class="btn btn-ghost" id="saveClose">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======= Paid 5R prints ======= -->
+  <div class="modal" id="printModal" hidden role="dialog" aria-labelledby="printTitle">
+    <div class="modal-card wide">
+      <div id="printPick">
+        <h2 class="h-spooky" id="printTitle">Print 5R Photos</h2>
+        <p class="muted small">5 × 7 in prints · <b id="priceEach">₱50</b> each. Choose which photos and how many.</p>
+        <div class="pick-grid" id="printGrid"></div>
+        <div class="order-bar">
+          <span id="orderSummary">No photos selected</span>
+          <b id="orderTotal">₱0</b>
+        </div>
+        <div class="pay-step" id="payStep" hidden>
+          <p class="small"><b>Pay <span id="payAmount">₱0</span> at the counter.</b> Staff will enter the code to start printing.</p>
+          <div class="pay-row">
+            <input id="staffCode" type="password" inputmode="numeric" autocomplete="off" maxlength="8" placeholder="Staff code" aria-label="Staff code">
+            <button class="btn btn-glow" id="payConfirm">Confirm &amp; Print</button>
+          </div>
+          <p class="muted tiny" id="demoCodeHint" hidden>Demo staff code: <b>1234</b></p>
+        </div>
+        <p class="error" id="printError" role="alert"></p>
+        <div class="modal-actions">
+          <button class="btn btn-ghost" id="printClose">Cancel</button>
+        </div>
+      </div>
+      <div id="printDone" hidden>
+        <h2 class="h-spooky">Printing…</h2>
+        <p class="muted small" id="printDoneMsg"></p>
+        <div class="print-strip" id="printStrip"></div>
+        <p class="muted tiny" id="printNote"></p>
+        <div class="modal-actions">
+          <button class="btn btn-glow" id="printAgain">🖨️ Print Again</button>
+          <button class="btn btn-ghost" id="printDoneClose">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status"></div>
+  <div id="printArea" aria-hidden="true"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
